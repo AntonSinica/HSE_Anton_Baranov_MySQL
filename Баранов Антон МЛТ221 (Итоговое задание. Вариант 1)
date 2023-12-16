@@ -1,8 +1,3 @@
-!!!В ПРОЦЕССЕ ВЫПОЛНЕНИЯ!!!
-!!!В ПРОЦЕССЕ ВЫПОЛНЕНИЯ!!!
-!!!В ПРОЦЕССЕ ВЫПОЛНЕНИЯ!!!
-
-
 Шаг 1
 (Создание таблиц)
 -- Создание таблицы Educational_journal
@@ -37,7 +32,7 @@ CREATE TABLE Teachers (
 CREATE TABLE Subjects (
   subject_id INT PRIMARY KEY,
   title VARCHAR(100),
-  description VARCHAR(25) CHECK (description IN ('Гуманитарная наука', 'Математиче-ская наука'))
+  description VARCHAR(25) CHECK (description IN ('Гуманитарная наука', 'Математическая наука'))
 );
 
 -- Создание таблицы Grades
@@ -46,13 +41,13 @@ CREATE TABLE Grades (
   grade INT CHECK (grade >= 1 AND grade <= 5),
   grade_text VARCHAR(25)
 );
-ШАГ 2
+Шаг 2
 (Связывание таблиц)
 -- Добавление внешних ключей
 ALTER TABLE Educational_journal
-    ADD CONSTRAINT FK_Students FOREIGN KEY (students_id) REFERENCES Stu-dents(student_id),
-    ADD CONSTRAINT FK_Subjects FOREIGN KEY (subjects_id) REFERENCES Sub-jects(subject_id),
-    ADD CONSTRAINT FK_Teachers FOREIGN KEY (teachers_id) REFERENCES Teach-ers(teacher_id),
+    ADD CONSTRAINT FK_Students FOREIGN KEY (students_id) REFERENCES Students(student_id),
+    ADD CONSTRAINT FK_Subjects FOREIGN KEY (subjects_id) REFERENCES Subjects(subject_id),
+    ADD CONSTRAINT FK_Teachers FOREIGN KEY (teachers_id) REFERENCES Teachers(teacher_id),
     ADD CONSTRAINT FK_Grades FOREIGN KEY (grades_id) REFERENCES Grades(grade_id);
 Шаг 3
 (Уникальные индексы)
@@ -67,7 +62,7 @@ CREATE UNIQUE INDEX UX_Subjects_Title ON Subjects (title);
 
 -- Создание уникального индекса для таблицы Grades
 CREATE UNIQUE INDEX UX_Grades_Grade ON Grades (grade);
-ШАГ 4
+Шаг 4
 (Вставка, обновление, удаление значения)
 -- Вставка записи о новом студенте
 INSERT INTO Students (student_id, first_name, last_name, date_of_birth, contact_info)
@@ -81,10 +76,205 @@ UPDATE Teachers
 SET contact_info = 'petrov65@example.com'
 WHERE teacher_id = 1;
 
--- Вставка и удаление информации о предмете
-INSERT INTO Teachers (teacher_id, first_name, last_name, date_of_birth, contact_info)
-VALUES (1, 'Петр', 'Петров', '1965-01-11', 'petrov@example.com');
+-- Вставка и удаление информации о предмете со всеми зависимостями
+INSERT INTO Subjects (subject_id, title, description)
+VALUES (1, 'Математика', 'Математическая наука');
 
-UPDATE Teachers
-SET contact_info = 'petrov65@example.com'
-WHERE teacher_id = 1;
+DELETE s, j
+FROM Subjects s
+LEFT JOIN Educational_journal j ON s.subject_id = j.subject_id
+WHERE s.subject_id = 1;
+
+Шаг 5
+(Процедуры)
+DELIMITER //
+
+CREATE PROCEDURE GetStudentsBySubject(
+    IN subjectTitle VARCHAR(100)
+)
+BEGIN
+    SELECT s.first_name, s.last_name
+    FROM Students s
+    INNER JOIN Educational_journal ej ON s.student_id = ej.students_id
+    INNER JOIN Subjects sub ON ej.subjects_id = sub.subject_id
+    WHERE sub.title = subjectTitle;
+END //
+
+DELIMITER ;
+
+DELIMITER //
+
+CREATE PROCEDURE GetSubjectsByTeacher(
+    IN teacherId INT
+)
+BEGIN
+    SELECT sub.title
+    FROM Subjects sub
+    INNER JOIN Educational_journal ej ON sub.subject_id = ej.subjects_id
+    INNER JOIN Teachers t ON ej.teachers_id = t.teacher_id
+    WHERE t.teacher_id = teacherId;
+END //
+
+DELIMITER ;
+
+DELIMITER //
+
+CREATE PROCEDURE GetAverageGradeByStudent(
+    IN studentId INT
+)
+BEGIN
+    SELECT AVG(g.grade) AS average_grade
+    FROM Grades g
+    INNER JOIN Educational_journal ej ON g.grade_id = ej.grades_id
+    WHERE ej.students_id = studentId;
+END //
+
+DELIMITER ;
+
+DELIMITER //
+
+CREATE PROCEDURE GetTeachersRanking()
+BEGIN
+    SELECT t.teacher_id, CONCAT(t.first_name, ' ', t.last_name) AS teacher_name, AVG(g.grade) AS average_grade
+    FROM Teachers t
+    INNER JOIN Educational_journal ej ON t.teacher_id = ej.teachers_id
+    INNER JOIN Grades g ON ej.grades_id = g.grade_id
+    GROUP BY t.teacher_id, teacher_name
+    ORDER BY average_grade DESC;
+END //
+
+DELIMITER ;
+
+DELIMITER //
+
+CREATE PROCEDURE GetTeachersWithManySubjects()
+BEGIN
+    SELECT t.teacher_id, CONCAT(t.first_name, ' ', t.last_name) AS teacher_name, COUNT(DISTINCT ej.subjects_id) AS num_subjects
+    FROM Teachers t
+    INNER JOIN Educational_journal ej ON t.teacher_id = ej.teachers_id
+    WHERE ej.date >= DATE_SUB(CURDATE(), INTERVAL 1 YEAR)
+    GROUP BY t.teacher_id, teacher_name
+    HAVING num_subjects > 3;
+END //
+
+DELIMITER ;
+
+DELIMITER //
+
+CREATE PROCEDURE GetStudentsByGrades()
+BEGIN
+    SELECT s.student_id, CONCAT(s.first_name, ' ', s.last_name) AS student_name, AVG(g.grade) AS average_grade
+    FROM Students s
+    INNER JOIN Educational_journal ej ON s.student_id = ej.students_id
+    INNER JOIN Subjects sub ON ej.subjects_id = sub.subject_id
+    INNER JOIN Grades g ON ej.grades_id = g.grade_id
+    WHERE sub.description = 'Математическая наука'
+    GROUP BY s.student_id, student_name
+    HAVING average_grade > 4
+    UNION
+    SELECT s.student_id, CONCAT(s.first_name, ' ', s.last_name) AS student_name, AVG(g.grade) AS average_grade
+    FROM Students s
+    INNER JOIN Educational_journal ej ON s.student_id = ej.students_id
+    INNER JOIN Subjects sub ON ej.subjects_id = sub.subject_id
+    INNER JOIN Grades g ON ej.grades_id = g.grade_id
+    WHERE sub.description = 'Гуманитарная наука'
+    GROUP BY s.student_id, student_name
+    HAVING average_grade < 3;
+END //
+
+DELIMITER ;
+
+DELIMITER //
+
+CREATE PROCEDURE GetSubjectsWithMostFailures()
+BEGIN
+    DECLARE current_year INT;
+    SET current_year = YEAR(CURDATE());
+
+    SELECT sub.title, COUNT(*) AS num_failures
+    FROM Educational_journal ej
+    INNER JOIN Subjects sub ON ej.subjects_id = sub.subject_id
+    INNER JOIN Grades g ON ej.grades_id = g.grade_id
+    WHERE YEAR(ej.date) = current_year AND g.grade = 2
+    GROUP BY sub.title
+    ORDER BY num_failures DESC
+    LIMIT 5;
+END //
+
+DELIMITER ;
+
+DELIMITER //
+
+CREATE PROCEDURE GetTopStudentsAndTeachers()
+BEGIN
+    SELECT s.first_name, s.last_name, t.first_name, t.last_name
+    FROM Students s
+    INNER JOIN Educational_journal ej ON s.student_id = ej.students_id
+    INNER JOIN Subjects sub ON ej.subjects_id = sub.subject_id
+    INNER JOIN Teachers t ON ej.teachers_id = t.teacher_id
+    INNER JOIN Grades g ON ej.grades_id = g.grade_id
+    WHERE g.grade = 5
+    GROUP BY s.student_id
+    HAVING COUNT(*) = (SELECT COUNT(*) FROM Subjects)
+    ORDER BY s.last_name, s.first_name;
+END //
+
+DELIMITER ;
+
+DELIMITER //
+
+CREATE PROCEDURE GetAverageGradeByYear()
+BEGIN
+    SELECT YEAR(ej.date) AS year, s.student_id, s.first_name, s.last_name, AVG(g.grade) AS average_grade
+    FROM Educational_journal ej
+    INNER JOIN Students s ON ej.students_id = s.student_id
+    INNER JOIN Grades g ON ej.grades_id = g.grade_id
+    GROUP BY YEAR(ej.date), s.student_id
+    ORDER BY s.last_name, s.first_name, YEAR(ej.date);
+END //
+
+DELIMITER ;
+
+DELIMITER //
+
+CREATE PROCEDURE GetTopStudentsBySubject()
+BEGIN
+    SELECT ej.subjects_id, s.student_id, s.first_name, s.last_name, AVG(g.grade) AS average_grade
+    FROM Educational_journal ej
+    INNER JOIN Students s ON ej.students_id = s.student_id
+    INNER JOIN Grades g ON ej.grades_id = g.grade_id
+    INNER JOIN (
+        SELECT subjects_id, AVG(g.grade) AS avg_grade
+        FROM Educational_journal ej
+        INNER JOIN Grades g ON ej.grades_id = g.grade_id
+        GROUP BY subjects_id
+    ) subj_avg ON ej.subjects_id = subj_avg.subjects_id
+    GROUP BY ej.subjects_id, s.student_id
+    HAVING AVG(g.grade) > subj_avg.avg_grade
+    ORDER BY ej.subjects_id, AVG(g.grade) DESC;
+END //
+
+DELIMITER ;
+
+Шаг 6
+(Документация)
+В базе данных находятся 5 таблиц:
+1)	Educational_journal – основная, аккумулирующая таблица, содержит следующие атрибуты: id записи, студент, предмет, преподаватель, оценка, дата оценки. Каждый из атрибутов за исключением даты – связан с соответствующей таблицей. Данная таблица по сути представляет из себя учебный журнал.
+2)	Students – таблица, содержащая сведения обо всех студентах. Содержит следующие атрибуты: id студента, имя, фамилия, дата рождения, контактная информация. Атрибут id студента связан с Educational_journal.
+3)	Teachers – таблица, содержащая сведения обо всех преподавателях. Содержит следующие атрибуты: id преподавателя, имя, фамилия, дата рождения, контактная информация. Атрибут id преподавателя связан с Educational_journal.
+4)	Subjects – таблица, содержащая сведения обо всех преподаваемых учебных дисциплинах. Содержит следующие атрибуты: id учебной дисциплины, наименование, описание. Атрибут описания может быть двух видов: гуманитарная наука или математическая наука. Атрибут id учебной дисциплины связан с Educational_journal.
+5)	Grades – таблица, содержащая сведения возможных оценках. Содержит следующие атрибуты: id оценка, оценка в числовом формате (от 1 до 5), оценка в текстовом формате (от «Ужасно» до «Отлично»). Атрибут оценка в числовом формате может принимать только значения от 1 до 5. Атрибут id оценки связан с Educational_journal.
+Для таблиц Students, Teachers, Subjects и Grades созданы дополнительно уникальные индексы, чтобы предотвратить дублирование записей. Так, для таблиц Students и Teachers уникальным индексом является атрибут contact_info (так как значения иных атрибутов в теории могут совпадать), для таблицы Subjects уникальным индексом является атрибут title, то есть название учебной дисциплины, а для таблицы Grades – атрибут grade, то есть оценка в числовом формате (их всего 5, больше быть не должно).
+В базе данных содержатся 10 процедур:
+1)	GetStudentsBySubject – выводит список студентов по определённому предмету. В данной процедуре используется параметр subjectTitle, который принимает значение определенного предмета;
+2)	GetSubjectsByTeacher – выводит список предметов, которые преподаёт конкретный преподаватель. В данной процедуре используется параметр teacherId, который принимает идентификатор конкретного преподавателя;
+3)	GetAverageGradeByStudent – выводит средний балл студента по всем предметам. В данной процедуре используется параметр studentId, который принимает идентификатор конкретного студента;
+4)	GetTeachersRanking – выводит рейтинг преподавателей по средней оценке студентов;
+5)	GetTeachersWithManySubjects – выводит список преподавателей, которые преподавали более 3 предметов за последний год;
+6)	GetStudentsByGrades – выводит список студентов, которые имеют средний балл выше 4 по математическим предметам, но ниже 3 по гуманитарным;
+7)	GetSubjectsWithMostFailures – определяет предметы, по которым больше всего двоек в текущем году;
+8)	GetTopStudentsAndTeachers – выводит студентов, которые получили высший балл по всем своим предметам, и преподавателей, которые вели эти предметы;
+9)	GetAverageGradeByYear – позволяет просматривать изменение среднего балла студента по годам обучения;
+10)	GetTopStudentsBySubject – позволяет определить студентов, у которых средний балл выше, чем у других, по аналогичным предметам.
+
+
