@@ -1,5 +1,6 @@
 Шаг 1
 (Создание таблиц)
+
 -- Создание таблицы Educational_journal
 CREATE TABLE Educational_journal (
   id INT PRIMARY KEY,
@@ -41,16 +42,22 @@ CREATE TABLE Grades (
   grade INT CHECK (grade >= 1 AND grade <= 5),
   grade_text VARCHAR(25)
 );
+
+
 Шаг 2
 (Связывание таблиц)
+
 -- Добавление внешних ключей
 ALTER TABLE Educational_journal
     ADD CONSTRAINT FK_Students FOREIGN KEY (students_id) REFERENCES Students(student_id),
     ADD CONSTRAINT FK_Subjects FOREIGN KEY (subjects_id) REFERENCES Subjects(subject_id),
     ADD CONSTRAINT FK_Teachers FOREIGN KEY (teachers_id) REFERENCES Teachers(teacher_id),
     ADD CONSTRAINT FK_Grades FOREIGN KEY (grades_id) REFERENCES Grades(grade_id);
+
+
 Шаг 3
 (Уникальные индексы)
+
 -- Создание уникального индекса для таблицы Students
 CREATE UNIQUE INDEX UX_Students_ContactInfo ON Students (contact_info);
 
@@ -62,8 +69,11 @@ CREATE UNIQUE INDEX UX_Subjects_Title ON Subjects (title);
 
 -- Создание уникального индекса для таблицы Grades
 CREATE UNIQUE INDEX UX_Grades_Grade ON Grades (grade);
+
+
 Шаг 4
 (Вставка, обновление, удаление значения)
+
 -- Вставка записи о новом студенте
 INSERT INTO Students (student_id, first_name, last_name, date_of_birth, contact_info)
 VALUES (1, 'Иван', 'Иванов', '1995-05-15', 'ivanov@example.com');
@@ -85,8 +95,11 @@ FROM Subjects s
 LEFT JOIN Educational_journal j ON s.subject_id = j.subject_id
 WHERE s.subject_id = 1;
 
+
 Шаг 5
 (Процедуры)
+
+-- Вывод списка студентов по определённому предмету
 DELIMITER //
 
 CREATE PROCEDURE GetStudentsBySubject(
@@ -102,6 +115,7 @@ END //
 
 DELIMITER ;
 
+-- Вывод списка предметов, которые преподаёт конкретный преподаватель
 DELIMITER //
 
 CREATE PROCEDURE GetSubjectsByTeacher(
@@ -117,6 +131,7 @@ END //
 
 DELIMITER ;
 
+-- Вывод среднего балла студента по всем предметам
 DELIMITER //
 
 CREATE PROCEDURE GetAverageGradeByStudent(
@@ -131,6 +146,7 @@ END //
 
 DELIMITER ;
 
+-- Вывод рейтинга преподавателей по средней оценке студентов
 DELIMITER //
 
 CREATE PROCEDURE GetTeachersRanking()
@@ -145,6 +161,7 @@ END //
 
 DELIMITER ;
 
+-- Вывод списка преподавателей, которые преподавали более 3 предметов за последний год
 DELIMITER //
 
 CREATE PROCEDURE GetTeachersWithManySubjects()
@@ -159,6 +176,7 @@ END //
 
 DELIMITER ;
 
+-- Вывод списка студентов, которые имеют средний балл выше 4 по математическим предметам, но ниже 3 по гуманитарным
 DELIMITER //
 
 CREATE PROCEDURE GetStudentsByGrades()
@@ -184,6 +202,7 @@ END //
 
 DELIMITER ;
 
+-- Определение предметов, по которым больше всего двоек в текущем году
 DELIMITER //
 
 CREATE PROCEDURE GetSubjectsWithMostFailures()
@@ -203,6 +222,7 @@ END //
 
 DELIMITER ;
 
+-- Вывод студентов, которые получили высший балл по всем своим предметам, и преподавателей, которые вели эти предметы
 DELIMITER //
 
 CREATE PROCEDURE GetTopStudentsAndTeachers()
@@ -221,6 +241,7 @@ END //
 
 DELIMITER ;
 
+-- Просмотр изменения среднего балла студента по годам обучения
 DELIMITER //
 
 CREATE PROCEDURE GetAverageGradeByYear()
@@ -235,6 +256,7 @@ END //
 
 DELIMITER ;
 
+-- Определение студентов, у которых средний балл выше, чем у других, по аналогичным предметам
 DELIMITER //
 
 CREATE PROCEDURE GetTopStudentsBySubject()
@@ -256,8 +278,10 @@ END //
 
 DELIMITER ;
 
+
 Шаг 6
 (Документация)
+
 В базе данных находятся 5 таблиц:
 1)	Educational_journal – основная, аккумулирующая таблица, содержит следующие атрибуты: id записи, студент, предмет, преподаватель, оценка, дата оценки. Каждый из атрибутов за исключением даты – связан с соответствующей таблицей. Данная таблица по сути представляет из себя учебный журнал.
 2)	Students – таблица, содержащая сведения обо всех студентах. Содержит следующие атрибуты: id студента, имя, фамилия, дата рождения, контактная информация. Атрибут id студента связан с Educational_journal.
@@ -265,6 +289,7 @@ DELIMITER ;
 4)	Subjects – таблица, содержащая сведения обо всех преподаваемых учебных дисциплинах. Содержит следующие атрибуты: id учебной дисциплины, наименование, описание. Атрибут описания может быть двух видов: гуманитарная наука или математическая наука. Атрибут id учебной дисциплины связан с Educational_journal.
 5)	Grades – таблица, содержащая сведения возможных оценках. Содержит следующие атрибуты: id оценка, оценка в числовом формате (от 1 до 5), оценка в текстовом формате (от «Ужасно» до «Отлично»). Атрибут оценка в числовом формате может принимать только значения от 1 до 5. Атрибут id оценки связан с Educational_journal.
 Для таблиц Students, Teachers, Subjects и Grades созданы дополнительно уникальные индексы, чтобы предотвратить дублирование записей. Так, для таблиц Students и Teachers уникальным индексом является атрибут contact_info (так как значения иных атрибутов в теории могут совпадать), для таблицы Subjects уникальным индексом является атрибут title, то есть название учебной дисциплины, а для таблицы Grades – атрибут grade, то есть оценка в числовом формате (их всего 5, больше быть не должно).
+
 В базе данных содержатся 10 процедур:
 1)	GetStudentsBySubject – выводит список студентов по определённому предмету. В данной процедуре используется параметр subjectTitle, который принимает значение определенного предмета;
 2)	GetSubjectsByTeacher – выводит список предметов, которые преподаёт конкретный преподаватель. В данной процедуре используется параметр teacherId, который принимает идентификатор конкретного преподавателя;
